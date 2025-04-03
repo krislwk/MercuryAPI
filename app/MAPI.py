@@ -40,6 +40,11 @@ class AddStream:
             if (not streamIP or not streamName):
                 resp.status = falcon.HTTP_400
                 return
+            
+            alreadyExists = db.query(PublicStream).filter_by(streamIP=streamIP).first()
+            if (alreadyExists):
+                resp.status = falcon.HTTP_400
+                return
                 
             newStreamItem = PublicStream(streamName = streamName, streamIP = streamIP)
             db.add(newStreamItem)
