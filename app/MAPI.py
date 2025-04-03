@@ -1,7 +1,7 @@
 import falcon
 import falcon.asgi
 import sqlalchemy
-from sqlalchemy import Column, String
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 #DB Setup
@@ -12,6 +12,7 @@ Base = declarative_base()
 class PublicStream(Base):
     __tablename__ = "publicstream"
     streamName = Column(String)
+    hostTCP = Column(Integer)
     streamIP = Column(String, primary_key=True)
     
 Base.metadata.create_all(engine)
@@ -35,11 +36,12 @@ class AddStream:
         try:
             data = await req.get_media()
             streamName = data.get("streamName")
+            hostTCP = data.get("hostTCP")
             streamIP = data.get("streamIP")
             
-            if (not streamIP or not streamName):
+            if (not streamIP or not streamName or not hostTCP):
                 resp.status = falcon.HTTP_400
-                resp.media = {"error": "Cannot process request with empty stream ip."}
+                resp.media = {"error": "Cannot process request with empty stream ip and/or host tcp."}
                 return
             
             alreadyExists = db.query(PublicStream).filter_by(streamIP=streamIP).first()
@@ -48,7 +50,7 @@ class AddStream:
                 resp.media = {"error": "A stream with this ip already exists."}
                 return
                 
-            newStreamItem = PublicStream(streamName = streamName, streamIP = streamIP)
+            newStreamItem = PublicStream(streamName = streamName, hostTCP = hostTCP, streamIP = streamIP)
             db.add(newStreamItem)
             db.commit()
             db.refresh(newStreamItem)
@@ -99,6 +101,7 @@ class FetchStreams:
             resp.media = [
                 {
                     "streamName": item.streamName,
+                    "hostTCP": item.hostTCP,
                     "streamIP": item.streamIP
                 }
                 for item in streams
