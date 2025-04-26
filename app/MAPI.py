@@ -1,8 +1,9 @@
 import falcon
 import falcon.asgi
 import sqlalchemy
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, LargeBinary
 from sqlalchemy.orm import sessionmaker, declarative_base
+import base64
 
 #DB Setup
 engine = sqlalchemy.create_engine("sqlite:///publicStreams.sqlite")
@@ -14,6 +15,7 @@ class PublicStream(Base):
     streamName = Column(String)
     hostTCP = Column(Integer)
     streamIP = Column(String, primary_key=True)
+    thumbnail = Column(LargeBinary, nullable=True)
     
 Base.metadata.create_all(engine)
 
@@ -38,6 +40,11 @@ class AddStream:
             streamName = data.get("streamName")
             hostTCP = data.get("hostTCP")
             streamIP = data.get("streamIP")
+            thumbnail = data.get("thumbnail")
+            
+            print(streamName)
+            print(hostTCP)
+            print(streamIP)
             
             if (not streamIP or not streamName or not hostTCP):
                 resp.status = falcon.HTTP_400
@@ -49,8 +56,13 @@ class AddStream:
                 resp.status = falcon.HTTP_400
                 resp.media = {"error": "A stream with this ip already exists."}
                 return
-                
-            newStreamItem = PublicStream(streamName = streamName, hostTCP = hostTCP, streamIP = streamIP)
+            
+            thumbnailBase64 = data.get("thumbnail")
+            thumbnailBytes = None
+            if thumbnail:
+                thumbnailBytes = base64.b64decode(thumbnailBase64) #decode from base64
+
+            newStreamItem = PublicStream(streamName = streamName, hostTCP = hostTCP, streamIP = streamIP, thumbnail=thumbnailBytes)
             db.add(newStreamItem)
             db.commit()
             db.refresh(newStreamItem)
@@ -102,7 +114,8 @@ class FetchStreams:
                 {
                     "streamName": item.streamName,
                     "hostTCP": item.hostTCP,
-                    "streamIP": item.streamIP
+                    "streamIP": item.streamIP,
+                    "thumbnail": base64.b64encode(item.thumbnail).decode('utf-8') if item.thumbnail else None
                 }
                 for item in streams
             ]
